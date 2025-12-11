@@ -51,7 +51,7 @@ def start_webrtc_server():
 
     # aiohttp 서버를 새 스레드에서 실행
     def run():
-        web.run_app(app, port=8080)
+        web.run_app(app, port=8081)
 
     t = threading.Thread(target=run, daemon=True)
     t.start()
