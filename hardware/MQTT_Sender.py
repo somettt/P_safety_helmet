@@ -6,7 +6,7 @@ import temp_reader as temp_reader
 
 from datetime import datetime, timezone
 
-BROKER = "test.mosquitto.org"   # 클라우드 전용 주소로 수정 필요
+BROKER = "broker.hivemq.com"   # 클라우드 전용 주소로 수정 필요
 PORT = 1883
 TOPIC = "helmet/helmet_001/sensor"
 DEVICE_ID = "helmet_001"
