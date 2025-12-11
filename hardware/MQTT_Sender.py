@@ -15,8 +15,12 @@ def utc_ms():
     return int(datetime.now(timezone.utc).timestamp() * 1000)
 
 def read_temperature():
-    # TODO: 실제 센서 붙으면 여기 교체
-    return temp_reader.read_temp()
+    for _ in range(3):
+        temp = temp_reader.read_temp()
+        if temp is not None:
+            return temp
+        time.sleep(0.5)
+    return None
 
 def read_noise():
     # TODO: 마이크/소음센서 값으로 교체
@@ -28,10 +32,16 @@ def main():
 
     try:
         while True:
+            temp = read_temperature()
+            if temp is None:
+                # Skip this cycle instead of crashing on float(None)
+                time.sleep(1)
+                continue
+
             payload = {
                 "device_id": DEVICE_ID,
                 "timestamp": utc_ms(),
-                "temp": float(read_temperature()),
+                "temp": float(temp),
                 "noise": float(read_noise())
             }
 
