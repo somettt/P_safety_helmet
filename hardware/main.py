@@ -1,5 +1,6 @@
 import MQTT_Sender as mqtt_sender
 import WebRTC_Sender as webrtc_sender
+import asyncio
 import threading
 
 if __name__ == "__main__":
