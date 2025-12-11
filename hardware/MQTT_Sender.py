@@ -2,6 +2,8 @@ import time
 import json
 import random
 import paho.mqtt.client as mqtt
+import temp_reader as temp_reader
+
 from datetime import datetime, timezone
 
 BROKER = "test.mosquitto.org"   # 클라우드 전용 주소로 수정 필요
@@ -14,7 +16,7 @@ def utc_ms():
 
 def read_temperature():
     # TODO: 실제 센서 붙으면 여기 교체
-    return 27.0 + random.uniform(-0.5, 0.5)
+    return temp_reader.read_temp()
 
 def read_noise():
     # TODO: 마이크/소음센서 값으로 교체
@@ -36,7 +38,7 @@ def main():
             client.publish(TOPIC, json.dumps(payload))
             print("[MQTT] sent:", payload)
 
-            time.sleep(0.5)  # 0.5초 간격 송신
+            time.sleep(1)  # 0.5초 간격 송신
     except KeyboardInterrupt:
         print("...Stopping sensor publisher...")
         client.disconnect()
