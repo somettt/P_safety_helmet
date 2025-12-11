@@ -1,14 +1,15 @@
+import Adafruit_DHT
 import time
-import board
-import adafruit_dht
 
-dht = adafruit_dht.DHT22(board.D4) 
+DHT_SENSOR = Adafruit_DHT.DHT11
+DHT_PIN = 4   # GPIO번호
 
 def read_temp():
-    while True:
-        temp = dht.temperature 
-        time.sleep(1) 
-        return temp
+    _, temperature = Adafruit_DHT.read_retry(DHT_SENSOR, DHT_PIN)
+    return temperature
 
 if __name__ == "__main__":
-    print(read_temp())
+    while True:
+        t = read_temp()
+        print(f"Temp: {t}°C")
+        time.sleep(1)
