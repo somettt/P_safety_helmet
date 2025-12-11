@@ -2,7 +2,7 @@ import time
 import board
 import adafruit_dht
 
-dht = adafruit_dht.DHT11(board.D4)
+dht = adafruit_dht.DHT11(board.D4) # D4 핀에 DHT11 연결
 
 def read_temp():
     for _ in range(5): 
