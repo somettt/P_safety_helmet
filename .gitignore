@@ -1,8 +1,9 @@
 venv/
 __pycache__/
+*.db
+*.csv
+*.log
 *.pyc
-.idea/
-.vscode/
-.DS_Store
-Thumbs.db
-models/*.pt
+
+models/
+server/db/export/

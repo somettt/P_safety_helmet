@@ -7,7 +7,6 @@ RAW_FILE = "raw_data.csv"
 
 
 def load_raw_data(csv_path: str):
-    """CSV 파일을 읽어서 DB에 저장"""
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:

@@ -1,8 +1,10 @@
-import os
-from ultralytics import YOLO
+from server.db.config import DB_PATH
+import sqlite3
 
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # Safety 폴더
-model_path = os.path.join(BASE_DIR, "models", "best.pt")
+print("DB PATH:", DB_PATH)
 
-model = YOLO(model_path)
-print(model.names)
+conn = sqlite3.connect(DB_PATH)
+cur = conn.cursor()
+cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+print(cur.fetchall())
+conn.close()
