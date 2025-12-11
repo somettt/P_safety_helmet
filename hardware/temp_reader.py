@@ -1,14 +1,15 @@
-import adafruit_DHT
 import time
+import board
+import adafruit_dht
 
-DHT_SENSOR = adafruit_DHT.DHT11(board.D4)
+dht = adafruit_dht.DHT11(board.D4)
 
 def read_temp():
-    _, temperature = Adafruit_DHT.read_retry(DHT_SENSOR, DHT_PIN)
-    return temperature
-
-if __name__ == "__main__":
-    while True:
-        t = read_temp()
-        print(f"Temp: {t}°C")
-        time.sleep(1)
+    for _ in range(5): 
+        try:
+            temp = dht.temperature
+            if temp is not None:
+                return temp
+        except RuntimeError:
+            time.sleep(0.2)
+    return None
