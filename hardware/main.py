@@ -1,5 +1,5 @@
-import hardware.MQTT_Sender as mqtt_sender
-import hardware.WebRTC_Sender as webrtc_sender
+import MQTT_Sender as mqtt_sender
+import WebRTC_Sender as webrtc_sender
 import threading
 
 if __name__ == "__main__":
