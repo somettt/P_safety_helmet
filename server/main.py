@@ -3,6 +3,7 @@ from risk_analyzer import analyze
 from sensor_receiver import start_mqtt, latest_sensor
 from WebRTC_Server import start_webrtc_signaling_server
 import time
+from PYTHON.Safety.server.db.db_writer import insert_sensor, insert_risk
 
 
 def main():
@@ -51,6 +52,12 @@ def main():
             print("위험도:", result["level"])
             print("판단 사유:", result["reason"])
             print("==============")
+
+            insert_sensor(sensor["temp"], sensor["noise"])
+            insert_risk(result["level"], result["reason"])
+
+        
+
 
         time.sleep(1)
 

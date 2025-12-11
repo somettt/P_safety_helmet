@@ -1,10 +1,18 @@
-# ===== DB 설정 =====
-DB_HOST = "localhost"
-DB_USER = "root"
-DB_PASSWORD = "1234"
-DB_NAME = "smart_helmet"
+import os
 
-# ===== MQTT 설정 =====
-MQTT_BROKER = "localhost"
-MQTT_PORT = 1883
-MQTT_TOPIC = "helmet/sensor"
+# ==============================================
+# 프로젝트 루트(Safety 폴더) 절대경로 계산
+# ==============================================
+BASE_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))
+    )
+)
+
+# ==============================================
+# SQLite DB 파일 경로
+# ==============================================
+DB_PATH = os.path.join(BASE_DIR, "server", "db", "smart_helmet.db")
+
+# 디버깅 용 출력
+print(f"[DB CONFIG] Loaded DB_PATH: {DB_PATH}")
