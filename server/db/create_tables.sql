@@ -1,20 +1,13 @@
-PRAGMA foreign_keys = ON;
-
-DROP TABLE IF EXISTS risk_result;
-DROP TABLE IF EXISTS sensor_log;
-
-CREATE TABLE sensor_log (
+CREATE TABLE IF NOT EXISTS sensor_data (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    temp REAL NOT NULL,
-    noise REAL NOT NULL,
-    timestamp TEXT NOT NULL
+    temp REAL,
+    noise REAL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE risk_result (
+CREATE TABLE IF NOT EXISTS risk_data (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    sensor_id INTEGER NOT NULL,
-    risk_level TEXT NOT NULL,
+    level TEXT,
     reason TEXT,
-    created_at TEXT NOT NULL,
-    FOREIGN KEY (sensor_id) REFERENCES sensor_log(id)
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 );

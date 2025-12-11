@@ -1,35 +1,54 @@
+import os
 import sqlite3
-from datetime import datetime
 
-DB_PATH = "server/db/smart_helmet.db"
+# --------------------------------------------------
+# 1) DB 절대경로 설정
+# --------------------------------------------------
+# 이 파일(db_writer.py)이 위치한 폴더의 절대경로
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  
+# → C:/Users/parkn/OneDrive/CLOUD/VSCODE/PYTHON/Safety/server/db
 
-def insert_sensor(temp, noise, timestamp=None):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+# DB 파일 실제 위치
+DB_PATH = os.path.join(BASE_DIR, "smart_helmet.db")
 
-    if timestamp is None:
-        timestamp = datetime.now().isoformat()
+# --------------------------------------------------
+# 2) DB 파일이 있는 폴더가 없으면 생성 (예외 방지)
+# --------------------------------------------------
+if not os.path.exists(BASE_DIR):
+    os.makedirs(BASE_DIR)
 
-    cursor.execute("""
-        INSERT INTO sensor_log (timestamp, temp, noise)
-        VALUES (?, ?, ?)
-    """, (timestamp, temp, noise))
+# --------------------------------------------------
+# 3) INSERT 함수들
+# --------------------------------------------------
+def insert_sensor(temp, noise):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
 
-    conn.commit()
-    conn.close()
+        cur.execute("""
+            INSERT INTO sensor_data (temp, noise)
+            VALUES (?, ?)
+        """, (temp, noise))
+
+        conn.commit()
+        conn.close()
+
+    except Exception as e:
+        print("[DB ERROR] Sensor Insert Error:", e)
 
 
-def insert_risk(risk_level, reason, timestamp=None):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+def insert_risk(level, reason):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
 
-    if timestamp is None:
-        timestamp = datetime.now().isoformat()
+        cur.execute("""
+            INSERT INTO risk_data (level, reason)
+            VALUES (?, ?)
+        """, (level, reason))
 
-    cursor.execute("""
-        INSERT INTO risk_result (timestamp, risk_level, reason)
-        VALUES (?, ?, ?)
-    """, (timestamp, risk_level, reason))
+        conn.commit()
+        conn.close()
 
-    conn.commit()
-    conn.close()
+    except Exception as e:
+        print("[DB ERROR] Risk Insert Error:", e)
