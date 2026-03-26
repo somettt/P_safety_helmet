@@ -2,7 +2,7 @@ import time
 import json
 import random
 import paho.mqtt.client as mqtt
-import temp_reader as temp_reader
+# import temp_reader as temp_reader
 
 from datetime import datetime, timezone
 
@@ -15,12 +15,14 @@ def utc_ms():
     return int(datetime.now(timezone.utc).timestamp() * 1000)
 
 def read_temperature():
-    for _ in range(3):
-        temp = temp_reader.read_temp()
-        if temp is not None:
-            return temp
-        time.sleep(0.5)
-    return None
+    # for _ in range(3):
+    #     temp = temp_reader.read_temp()
+    #     if temp is not None:
+    #         return temp
+    #     time.sleep(0.5)
+    # return None
+    return 24.0 + random.uniform(-3, 3)
+
 
 def read_noise():
     # TODO: 마이크/소음센서 값으로 교체
