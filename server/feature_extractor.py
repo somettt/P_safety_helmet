@@ -1,30 +1,52 @@
 import os
+import cv2
 from ultralytics import YOLO
 
-# 모델 자동 경로 탐색
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_PATH = os.path.join(BASE_DIR, "models", "best.pt")
+# ============================================================
+# best.pt 경로 자동 설정
+# ============================================================
 
-# YOLO 모델 로드
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))    # Safety/server
+BASE_DIR = os.path.dirname(CURRENT_DIR)                     # Safety
+MODEL_PATH = os.path.join(BASE_DIR, "models", "best.pt")     # Safety/models/best.pt
+
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError("best.pt 파일을 찾을 수 없습니다: " + MODEL_PATH)
+
 model = YOLO(MODEL_PATH)
 
-# 2 = helmet, 6 = no_helmet
-HELMET_CLASS = 2
-NO_HELMET_CLASS = 6
+HELMET_KEYWORDS = ["helmet", "hardhat"]
+NO_HELMET_KEYWORDS = ["no_helmet", "no-hardhat", "without helmet"]
 
 
+# ============================================================
+# 헬멧 탐지 함수
+# ============================================================
 def detect_helmet(frame):
-    results = model(frame)
+
+    # YOLO 입력 향상 (리사이즈)
+    try:
+        frame_resized = cv2.resize(frame, (640, 640))
+    except Exception:
+        return 0
+
+    results = model(frame_resized, imgsz=640, conf=0.20)
 
     has_helmet = False
     has_no_helmet = False
 
     for box in results[0].boxes:
         cls = int(box.cls[0])
+        conf = float(box.conf[0])
+        name = results[0].names[cls].lower()
 
-        if cls == HELMET_CLASS:
+        if conf < 0.20:
+            continue
+
+        if any(k in name for k in HELMET_KEYWORDS):
             has_helmet = True
-        elif cls == NO_HELMET_CLASS:
+
+        if any(k in name for k in NO_HELMET_KEYWORDS):
             has_no_helmet = True
 
     if has_no_helmet:
