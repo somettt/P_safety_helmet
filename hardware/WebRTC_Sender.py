@@ -4,7 +4,7 @@ import aiohttp
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaPlayer
 
-SIGNALING_SERVER_URL = "http://172.20.10.5:8080/offer"  # 시그널링 서버
+SIGNALING_SERVER_URL = "http://172.20.10.5:8081/offer"  # 서버 수신부(camera_stream.py)와 포트 일치
 DUMMY_VIDEO_PATH = "sample.mp4"  # 데모임
 
 async def run():

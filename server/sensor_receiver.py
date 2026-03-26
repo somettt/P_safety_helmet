@@ -20,9 +20,8 @@ def start_mqtt():
     client.on_connect = on_connect
     client.on_message = on_message
     
-    # ★ 라즈베리파이가 보낼 브로커 주소와 동일해야 함
-    # 로컬 PC 브로커 사용할 경우:
-    client.connect("test.mosquitto.org", 1883, 60)
+    # ★ Hardware 모듈(MQTT_Sender.py)과 브로커 주소 통일
+    client.connect("broker.hivemq.com", 1883, 60)
     
     client.loop_start()
     return client

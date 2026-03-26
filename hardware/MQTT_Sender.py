@@ -50,7 +50,7 @@ def main():
             client.publish(TOPIC, json.dumps(payload))
             print("[MQTT] sent:", payload)
 
-            time.sleep(1)  # 0.5초 간격 송신
+            time.sleep(0.5)  # 0.5초 간격 송신
     except KeyboardInterrupt:
         print("...Stopping sensor publisher...")
         client.disconnect()
