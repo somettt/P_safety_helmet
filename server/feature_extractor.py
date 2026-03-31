@@ -1,57 +1,54 @@
-import os
-import cv2
 from ultralytics import YOLO
+import cv2
+import os
 
-# ============================================================
-# best.pt 경로 자동 설정
-# ============================================================
-
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))    # Safety/server
-BASE_DIR = os.path.dirname(CURRENT_DIR)                     # Safety
-MODEL_PATH = os.path.join(BASE_DIR, "models", "best.pt")     # Safety/models/best.pt
-
-if not os.path.exists(MODEL_PATH):
-    raise FileNotFoundError("best.pt 파일을 찾을 수 없습니다: " + MODEL_PATH)
+# =========================
+# YOLO 모델 경로 설정
+# =========================
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODEL_PATH = os.path.join(BASE_DIR, "models", "best.pt")
 
 model = YOLO(MODEL_PATH)
 
-HELMET_KEYWORDS = ["helmet", "hardhat"]
-NO_HELMET_KEYWORDS = ["no_helmet", "no-hardhat", "without helmet"]
+# =========================
+# 헬멧 탐지
+# =========================
+def detect_helmet(frame, conf_thresh=0.5):
+    frame = cv2.resize(frame, (640, 480))
+    results = model(frame, verbose=False)
 
+    persons = []
+    helmets = []
+    heads = []
 
-# ============================================================
-# 헬멧 탐지 함수
-# ============================================================
-def detect_helmet(frame):
-
-    # YOLO 입력 향상 (리사이즈)
-    try:
-        frame_resized = cv2.resize(frame, (640, 640))
-    except Exception:
-        return 0
-
-    results = model(frame_resized, imgsz=640, conf=0.20)
-
-    has_helmet = False
-    has_no_helmet = False
-
-    for box in results[0].boxes:
-        cls = int(box.cls[0])
-        conf = float(box.conf[0])
-        name = results[0].names[cls].lower()
-
-        if conf < 0.20:
+    # 1️⃣ 객체 분리
+    for r in results:
+        if r.boxes is None:
             continue
 
-        if any(k in name for k in HELMET_KEYWORDS):
-            has_helmet = True
+        for box in r.boxes:
+            cls = int(box.cls[0])
+            conf = float(box.conf[0])
+            label = model.names[cls].lower()
 
-        if any(k in name for k in NO_HELMET_KEYWORDS):
-            has_no_helmet = True
+            if conf < conf_thresh:
+                continue
 
-    if has_no_helmet:
-        return 0
-    if has_helmet:
-        return 1
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
 
-    return 0
+            if "person" in label:
+                persons.append((x1, y1, x2, y2))
+
+            elif "helmet" in label:
+                helmets.append((x1, y1, x2, y2))
+
+            elif "head" in label:
+                heads.append((x1, y1, x2, y2))
+
+    # 2️⃣ head 기준 판단 (🔥 핵심)
+    for head in heads:
+        for helmet in helmets:
+            if is_overlap(head, helmet):
+                return 1  # 착용
+
+    return 0  # 미착용

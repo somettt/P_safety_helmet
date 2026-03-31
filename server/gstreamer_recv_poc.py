@@ -7,7 +7,7 @@ gi.require_version('Gst', '1.0')
 gi.require_version('GstWebRTC', '1.0')
 gi.require_version('GstSdp', '1.0')
 from gi.repository import Gst, GObject, GstWebRTC, GstSdp
-
+from video_processor import VideoProcessor
 Gst.init(sys.argv)
 
 class WebRTCReceiverGeneric:
@@ -20,6 +20,7 @@ class WebRTCReceiverGeneric:
             "! video/x-raw, format=BGR "
             "! appsink name=appsink emit-signals=True sync=False max-buffers=1 drop=True"
         )
+        self.processor = VideoProcessor()
         
         print("[WebRTC] GStreamer 파이프라인 생성 중...")
         self.pipeline = Gst.parse_launch(pipeline_desc)

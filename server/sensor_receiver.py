@@ -1,38 +1,55 @@
 import paho.mqtt.client as mqtt
 import json
 
-latest_sensor = None        # 최신 센서값 저장
-got_sensor = False          # 센서가 한 번이라도 도착했는지 체크
+# ============================================
+# 전역 변수
+# ============================================
+latest_sensor = None
+got_sensor = False
 
+# ============================================
+# MQTT 콜백
+# ============================================
 def on_connect(client, userdata, flags, rc):
-    print("MQTT Connected with result code", rc)
-    client.subscribe("helmet/helmet_001/sensor")  # 센서 토픽 구독
+    print("[MQTT] Connected")
+    client.subscribe("helmet/sensor") # 🔥 토픽 맞춰야 함 (라즈베리파이 sender랑 동일)
+
 
 def on_message(client, userdata, msg):
     global latest_sensor, got_sensor
 
     try:
-        latest_sensor = json.loads(msg.payload.decode())
-        got_sensor = True  # 센서가 한번이라도 도착했음을 표시
-        print("Received Sensor:", latest_sensor)
+        payload = msg.payload.decode()
+        data = json.loads(payload)
+
+        latest_sensor = data
+        got_sensor = True
+
+        print(f"[MQTT] 수신: {latest_sensor}")
 
     except Exception as e:
-        print("JSON Parse Error:", e)
+        print("[MQTT] JSON Parse Error:", e)
 
+
+# ============================================
+# MQTT 시작
+# ============================================
 def start_mqtt():
     client = mqtt.Client()
+
     client.on_connect = on_connect
     client.on_message = on_message
-<<<<<<< HEAD
-    
-    # ★ Hardware 모듈(MQTT_Sender.py)과 브로커 주소 통일
-    client.connect("broker.hivemq.com", 1883, 60)
-    
-=======
 
-    # 브로커는 라즈베리파이와 동일 주소여야 함
+    # 🔥 브로커 주소 (sender랑 동일해야 함)
     client.connect("broker.hivemq.com", 1883, 60)
 
->>>>>>> ea75c93786e4a5065bbbf234c937d27d2e5ef842
     client.loop_start()
+
     return client
+
+
+# ============================================
+# 센서 데이터 가져오기
+# ============================================
+def get_sensor_data():
+    return latest_sensor

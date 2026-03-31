@@ -1,5 +1,5 @@
 import time
-<<<<<<< HEAD
+
 import threading
 import queue
 
@@ -8,18 +8,18 @@ from risk_analyzer import analyze
 from sensor_receiver import start_mqtt, latest_sensor
 # from WebRTC_Server import start_webrtc_signaling_server  <-- 중복된 서버 주석 처리 (프레임을 버리는 구조 삭제)
 from PYTHON.Safety.server.db.db_writer import insert_sensor, insert_risk
-=======
+
 import sensor_receiver
 import cv2
 from camera_stream import get_frame, start_webrtc_server
 from risk_analyzer import analyze
 from db.db_writer import insert_sensor, insert_risk
->>>>>>> ea75c93786e4a5065bbbf234c937d27d2e5ef842
+
 
 # 데이터를 비동기로 동기화 및 처리하기 위한 큐 (최신 프레임 10개만 유지, 밀리면 버림)
 sync_queue = queue.Queue(maxsize=10)
 
-<<<<<<< HEAD
+
 def data_fusion_worker():
     """
     영상과 센서 데이터를 실시간으로 합친 후 AI 분석(YOLO 등)으로 넘기는 처리 워커
@@ -82,10 +82,11 @@ def main():
     start_mqtt()
     print("MQTT Receiver: On")
     time.sleep(1) # MQTT 연결 안정화 대기
-=======
+
 def main():
 
-    sensor_receiver.start_mqtt()
+    sensor_receiver.start_dummy_sensor()
+
     print("MQTT Receiver: On")
     time.sleep(1)
 
@@ -131,8 +132,11 @@ def main():
             except Exception as e:
                 print("CBR/DB Error:", e)
 
+
         time.sleep(0.2)
->>>>>>> ea75c93786e4a5065bbbf234c937d27d2e5ef842
+
+        time.sleep(1)
+
 
     # 2) WebRTC 영상 수신 서버 시작 (포트 8081)
     # 기존에 포트 8080을 열던 불필요한 WebRTC_Server 로직은 제거했습니다.

@@ -87,3 +87,6 @@ def ensemble_cbr(case):
     final = max(score, key=score.get)
 
     return final, {"knn": knn, "weighted": wcb, "rule": rule, "score": score}
+
+#이 파일은 여러 판단 모델을 결합해서 
+#위험도를 결정하는 의사결정 엔진이다
