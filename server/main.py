@@ -2,11 +2,14 @@ import time
 
 import threading
 import queue
+import asyncio
+import websockets
+import json
 
 from camera_stream import get_frame, start_webrtc_server
 from risk_analyzer import analyze
 from sensor_receiver import start_mqtt, latest_sensor
-# from WebRTC_Server import start_webrtc_signaling_server  <-- 중복된 서버 주석 처리 (프레임을 버리는 구조 삭제)
+
 from PYTHON.Safety.server.db.db_writer import insert_sensor, insert_risk
 
 import sensor_receiver
@@ -15,10 +18,32 @@ from camera_stream import get_frame, start_webrtc_server
 from risk_analyzer import analyze
 from db.db_writer import insert_sensor, insert_risk
 
+from db.db_writer import insert_sensor, insert_risk
+
+# 웹소켓 전역 변수 설정
+connected_websocket_clients = set()
+websocket_loop = None
+
+async def echo_server(websocket, path):
+    connected_websocket_clients.add(websocket)
+    try:
+        async for message in websocket:
+            pass # 클라이언트의 메시지는 무시
+    except websockets.exceptions.ConnectionClosed:
+        pass
+    finally:
+        connected_websocket_clients.remove(websocket)
+
+def start_websocket_server():
+    global websocket_loop
+    websocket_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(websocket_loop)
+    start_server = websockets.serve(echo_server, "0.0.0.0", 8765)
+    websocket_loop.run_until_complete(start_server)
+    websocket_loop.run_forever()
 
 # 데이터를 비동기로 동기화 및 처리하기 위한 큐 (최신 프레임 10개만 유지, 밀리면 버림)
 sync_queue = queue.Queue(maxsize=10)
-
 
 def data_fusion_worker():
     """
@@ -35,6 +60,20 @@ def data_fusion_worker():
             result = analyze(frame, sensor)
             
             print(f"[AI 분석 완료] 위험도: {result['level']} | 사유: {result['reason']}")
+            
+            # 실시간 웹소켓 브로드캐스트
+            if websocket_loop is not None and websocket_loop.is_running():
+                payload = json.dumps({
+                    "riskLevel": "HIGH" if result["level"] == "위험" else "MID" if result["level"] == "경고" else "LOW",
+                    "temperature": sensor["temp"],
+                    "noise": sensor["noise"],
+                    "reason": result["reason"]
+                })
+                for client in list(connected_websocket_clients):
+                    try:
+                        asyncio.run_coroutine_threadsafe(client.send(payload), websocket_loop)
+                    except Exception as e:
+                        print(f"Websocket send error: {e}")
             
             # DB 저장 성능 향상을 원할 경우 이 부분도 비동기로 빼는 것이 좋습니다.
             insert_sensor(sensor["temp"], sensor["noise"])
@@ -137,13 +176,17 @@ def main():
 
         time.sleep(1)
 
-
     # 2) WebRTC 영상 수신 서버 시작 (포트 8081)
     # 기존에 포트 8080을 열던 불필요한 WebRTC_Server 로직은 제거했습니다.
     start_webrtc_server()
     print("WebRTC Receiver: On (Port 8081)")
 
-    # 3) 실시간 분석 워커 쓰레드 시작 (데몬 쓰레드)
+    # 3) 실시간 웹소켓(포트 8765) 서버 쓰레드 시작
+    ws_thread = threading.Thread(target=start_websocket_server, daemon=True)
+    ws_thread.start()
+    print("WebSocket Server: On (Port 8765)")
+
+    # 4) 실시간 분석 워커 쓰레드 시작 (데몬 쓰레드)
     # 백그라운드에서 계속 돌면서 큐에 들어오는 즉시 위험도를 분석합니다.
     fusion_thread = threading.Thread(target=data_fusion_worker, daemon=True)
     fusion_thread.start()

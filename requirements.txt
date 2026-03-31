@@ -2,3 +2,7 @@ ultralytics
 opencv-python
 numpy
 sounddevice
+websockets
+aiortc
+aiohttp
+paho-mqtt
