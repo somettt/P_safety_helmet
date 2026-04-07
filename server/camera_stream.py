@@ -54,9 +54,10 @@ def start_webrtc_server():  #WebRTC 서버 실행
     app = web.Application()
     app.router.add_post("/offer", offer)
 
-    # aiohttp 서버를 새 스레드에서 실행
     def run():
-        web.run_app(app, port=8080)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        web.run_app(app, port=8080, handle_signals=False)
 
     t = threading.Thread(target=run, daemon=True)
     t.start()

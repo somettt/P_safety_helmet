@@ -63,8 +63,17 @@ class WebRTCReceiverGeneric:
         return Gst.FlowReturn.OK
 
     def run_yolo_inference(self, frame):
-        # TODO: YOLO 모델 추론 로직 삽입
-        # 이 프레임은 MQTT 타임스탬프와 동기화하여 처리해야 합니다.
+        import time
+        # 임시 메타데이터 생성 (TODO: 실제 MQTT 센서 타임스탬프와 보다 정밀하게 동기화 필요)
+        metadata = {
+            "device_id": "webrtc_camera_1",
+            "frame_id": int(time.time() * 1000)
+        }
+        
+        # VideoProcessor를 통해 실질적인 YOLO 분석 및 센서 종합(CBR) 평가 호출
+        output = self.processor.process(frame, metadata)
+        if output:
+            print(f"[YOLO/CBR 결과] 최종 위험도: {output.get('risk', 'N/A')}")
         
         # 화면 출력 테스트용 (GUI 환경에서만 동작)
         cv2.imshow("WebRTC Generic Decoded", frame)
