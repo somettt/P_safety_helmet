@@ -1,6 +1,6 @@
 import paho.mqtt.client as mqtt
 import json
-
+from datetime import datetime
 # ============================================
 # 전역 변수
 # ============================================
@@ -25,7 +25,21 @@ def on_message(client, userdata, msg):
         latest_sensor = data
         got_sensor = True
 
-        print(f"[MQTT] 수신: {latest_sensor}")
+        # 🔥 timestamp 유연 처리
+        if "timestamp_utc_ms" in data:
+            ts = datetime.fromtimestamp(data['timestamp_utc_ms'] / 1000)
+            time_str = ts.strftime('%H:%M:%S')
+        else:
+            time_str = data.get("timestamp", "N/A")
+
+        print(f"""
+[MQTT RECEIVED]
+device_id : {data.get('device_id')}
+time      : {time_str}
+seq       : {data.get('seq')}
+temp      : {data.get('temp')}
+noise     : {data.get('noise')}
+""")
 
     except Exception as e:
         print("[MQTT] JSON Parse Error:", e)

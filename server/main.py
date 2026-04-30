@@ -5,7 +5,7 @@ import queue
 import asyncio
 import websockets
 import json
-
+from video_processor import VideoProcessor
 from camera_stream import get_frame, start_webrtc_server
 from risk_analyzer import analyze
 import sensor_receiver
@@ -50,42 +50,34 @@ def start_websocket_server():
 # 데이터를 비동기로 동기화 및 처리하기 위한 큐 (최신 프레임 10개만 유지, 밀리면 버림)
 sync_queue = queue.Queue(maxsize=10)
 
+processor = VideoProcessor()
+
 def data_fusion_worker():
-    """
-    영상과 센서 데이터를 실시간으로 합친 후 AI 분석(YOLO 등)으로 넘기는 처리 워커
-    지연 시간(time.sleep) 없이 큐에 데이터가 들어오자마자 즉시 처리함.
-    """
     print("[Worker] Data Fusion / AI Inference Thread: On")
+
     while True:
-        # 큐에 들어올 때까지 대기(Blocking)하므로 CPU를 낭비하지 않음
         frame, sensor, frame_meta = sync_queue.get()
-        
+
         try:
-            # 실시간 AI 분석 수행
-            result = analyze(frame, sensor)
-            
-            print(f"[AI 분석 완료] 위험도: {result['level']} | 사유: {result['reason']}")
-            
-            # 실시간 웹소켓 브로드캐스트
-            if websocket_loop is not None and websocket_loop.is_running():
-                payload = json.dumps({
-                    "riskLevel": map_risk_level(result.get("level", "LOW")),
-                    "temperature": sensor["temp"],
-                    "noise": sensor["noise"],
-                    "reason": result["reason"],
-                    "deviceId": frame_meta.get("device_id"),
-                    "frameId": frame_meta.get("frame_id"),
-                })
-                for client in list(connected_websocket_clients):
-                    try:
-                        asyncio.run_coroutine_threadsafe(client.send(payload), websocket_loop)
-                    except Exception as e:
-                        print(f"Websocket send error: {e}")
-            
-            # DB 저장 성능 향상을 원할 경우 이 부분도 비동기로 빼기.
-            insert_sensor(sensor["temp"], sensor["noise"])
-            insert_risk(result["level"], result["reason"])
-            
+            result = processor.process(frame, frame_meta, sensor)
+
+            if result is None:
+                continue
+
+            print("\n========== AI RESULT ==========")
+            print(f"device_id : {result['device_id']}")
+
+            if result["helmet"] is None:
+                print("person    : 없음")
+            else:
+                print("person    : 있음")
+                print(f"helmet    : {result['helmet']}")
+
+            print(f"temp      : {result['sensor']['temp']}")
+            print(f"noise     : {result['sensor']['noise']}")
+            print(f"risk      : {result['risk']}")
+            print("================================\n")
+
         except Exception as e:
             print(f"[Error] 분석 중 오류 발생: {e}")
         finally:

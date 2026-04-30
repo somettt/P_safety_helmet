@@ -43,17 +43,24 @@ def main():
 
             payload = {
                 "device_id": DEVICE_ID,
-                "timestamp_utc_ms": utc_ms(),
+                "timestamp": datetime.now().strftime("%H:%M:%S"),
                 "seq": seq,
-                "temp": float(temp),
-                "noise": float(read_noise())
+                "temp": round(float(temp), 1),
+                "noise": round(float(read_noise()), 1)
             }
 
             client.publish(TOPIC, json.dumps(payload))
-            print("[MQTT] sent:", payload)
+            print(f"""
+            [MQTT SENT]
+            device_id : {DEVICE_ID}
+            time      : {datetime.now().strftime("%H:%M:%S")}
+            seq       : {seq}
+            temp      : {round(float(temp), 1)}
+            noise     : {round(float(read_noise()), 1)}
+            """)
 
             seq += 1
-            time.sleep(0.5)
+            time.sleep(2)
     except KeyboardInterrupt:
         print("...Stopping sensor publisher...")
         client.disconnect()
