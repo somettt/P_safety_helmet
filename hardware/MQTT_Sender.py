@@ -6,10 +6,11 @@ import paho.mqtt.client as mqtt
 
 from datetime import datetime, timezone
 
-BROKER = "broker.hivemq.com"   # 클라우드 전용 주소로 수정 필요
+BROKER = "broker.hivemq.com" #클라우드 주소로 추후에 수정 필요(확장시)
 PORT = 1883
-TOPIC = "helmet/helmet_001/sensor"
+TOPIC = "helmet/sensor"  
 DEVICE_ID = "helmet_001"
+
 
 def utc_ms():
     return int(datetime.now(timezone.utc).timestamp() * 1000)
@@ -32,17 +33,18 @@ def main():
     client = mqtt.Client(client_id=DEVICE_ID)
     client.connect(BROKER, PORT, 60)
 
+    seq = 0
     try:
         while True:
             temp = read_temperature()
             if temp is None:
-                # Skip this cycle instead of crashing on float(None)
                 time.sleep(1)
                 continue
 
             payload = {
                 "device_id": DEVICE_ID,
-                "timestamp": utc_ms(),
+                "timestamp_utc_ms": utc_ms(),
+                "seq": seq,
                 "temp": float(temp),
                 "noise": float(read_noise())
             }
@@ -50,7 +52,8 @@ def main():
             client.publish(TOPIC, json.dumps(payload))
             print("[MQTT] sent:", payload)
 
-            time.sleep(0.5)  # 0.5초 간격 송신
+            seq += 1
+            time.sleep(0.5)
     except KeyboardInterrupt:
         print("...Stopping sensor publisher...")
         client.disconnect()

@@ -2,11 +2,12 @@ import asyncio
 import threading
 import cv2
 import numpy as np
+import time
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaStreamTrack
 from aiohttp import web
 
-latest_frame = None  # WebRTC로 받은 최신 프레임 저장
+latest_frame = None  # {"frame", "device_id", "frame_id", "arrival_utc_ms"}
 
 #WebRTC영상을 가로채서 처리
 #
@@ -16,16 +17,23 @@ latest_frame = None  # WebRTC로 받은 최신 프레임 저장
 class VideoReceiver(MediaStreamTrack):
     kind = "video"
 
-    def __init__(self, track):
+    def __init__(self, track, device_id):
         super().__init__()
         self.track = track
+        self.device_id = device_id
 
     async def recv(self):
         global latest_frame
         frame = await self.track.recv()     #원본영상 받음
 
         img = frame.to_ndarray(format="bgr24")  #OpenCV용 ndarray로 변환
-        latest_frame = img      #최신프레임 저장
+        now_ms = int(time.time() * 1000)
+        latest_frame = {
+            "frame": img,
+            "device_id": self.device_id,
+            "frame_id": f"{self.device_id}-{now_ms}",
+            "arrival_utc_ms": now_ms,
+        }
 
         return frame            #원본프레임 반환
 
@@ -33,13 +41,14 @@ class VideoReceiver(MediaStreamTrack):
 async def offer(request):   #WebRTC 연결을 시작
     params = await request.json()   #클라이언트 offer 받기
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+    device_id = params.get("device_id", "unknown_device")
 
     pc = RTCPeerConnection()    #연결
 
     @pc.on("track")     #클라이언트가 영상을 보내면 실행
     def on_track(track):
         if track.kind == "video":
-            pc.addTrack(VideoReceiver(track))
+            pc.addTrack(VideoReceiver(track, device_id))
 
     await pc.setRemoteDescription(offer)    #WebRTC 표준 절차
     answer = await pc.createAnswer()

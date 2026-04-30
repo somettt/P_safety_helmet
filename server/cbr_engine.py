@@ -1,10 +1,14 @@
 import json
 import math
+import os
 
 # ================================================
 # 1) CASE LIBRARY LOAD
 # ================================================
-with open("case_library.json", "r") as f:
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CASE_LIBRARY_PATH = os.path.join(BASE_DIR, "case_library.json")
+
+with open(CASE_LIBRARY_PATH, "r") as f:
     try:
         CASES = json.load(f)
     except:

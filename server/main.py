@@ -8,7 +8,8 @@ import json
 
 from camera_stream import get_frame, start_webrtc_server
 from risk_analyzer import analyze
-from sensor_receiver import start_mqtt, latest_sensor
+import sensor_receiver
+from sensor_receiver import start_mqtt
 
 from db.db_writer import insert_sensor, insert_risk
 
@@ -16,7 +17,16 @@ from db.db_writer import insert_sensor, insert_risk
 connected_websocket_clients = set()
 websocket_loop = None
 
-async def echo_server(websocket, path):
+
+def map_risk_level(level):
+    if level in ("위험", "HIGH"):
+        return "HIGH"
+    if level in ("경고", "MID"):
+        return "MID"
+    return "LOW"
+
+
+async def echo_server(websocket, *_args):
     connected_websocket_clients.add(websocket)
     try:
         async for message in websocket:
@@ -24,7 +34,7 @@ async def echo_server(websocket, path):
     except websockets.exceptions.ConnectionClosed:
         pass
     finally:
-        connected_websocket_clients.remove(websocket)
+        connected_websocket_clients.discard(websocket)
 
 def start_websocket_server():
     global websocket_loop
@@ -48,7 +58,7 @@ def data_fusion_worker():
     print("[Worker] Data Fusion / AI Inference Thread: On")
     while True:
         # 큐에 들어올 때까지 대기(Blocking)하므로 CPU를 낭비하지 않음
-        frame, sensor = sync_queue.get()
+        frame, sensor, frame_meta = sync_queue.get()
         
         try:
             # 실시간 AI 분석 수행
@@ -59,10 +69,12 @@ def data_fusion_worker():
             # 실시간 웹소켓 브로드캐스트
             if websocket_loop is not None and websocket_loop.is_running():
                 payload = json.dumps({
-                    "riskLevel": "HIGH" if result["level"] == "위험" else "MID" if result["level"] == "경고" else "LOW",
+                    "riskLevel": map_risk_level(result.get("level", "LOW")),
                     "temperature": sensor["temp"],
                     "noise": sensor["noise"],
-                    "reason": result["reason"]
+                    "reason": result["reason"],
+                    "deviceId": frame_meta.get("device_id"),
+                    "frameId": frame_meta.get("frame_id"),
                 })
                 for client in list(connected_websocket_clients):
                     try:
@@ -70,7 +82,7 @@ def data_fusion_worker():
                     except Exception as e:
                         print(f"Websocket send error: {e}")
             
-            # DB 저장 성능 향상을 원할 경우 이 부분도 비동기로 빼는 것이 좋습니다.
+            # DB 저장 성능 향상을 원할 경우 이 부분도 비동기로 빼기.
             insert_sensor(sensor["temp"], sensor["noise"])
             insert_risk(result["level"], result["reason"])
             
@@ -88,16 +100,25 @@ def data_polling_manager():
     last_frame_id = None
     
     while True:
-        frame = get_frame()
-        sensor = latest_sensor
+        frame_packet = get_frame()
+        sensor = sensor_receiver.get_sensor_data()
         
         # 두 데이터가 모두 존재하고, 이전과 다른 '새로운 프레임'일 때만 동기화 큐에 삽입
-        if frame is not None and sensor is not None:
-            current_frame_id = id(frame)
+        if frame_packet is not None and sensor is not None:
+            frame = frame_packet["frame"]
+            video_device_id = frame_packet.get("device_id")
+            sensor_device_id = sensor.get("device_id")
+
+            # 센서에 device_id가 있을 경우, 동일 디바이스 데이터만 처리
+            if sensor_device_id and video_device_id and sensor_device_id != video_device_id:
+                time.sleep(0.01)
+                continue
+
+            current_frame_id = frame_packet.get("frame_id", id(frame))
             if current_frame_id != last_frame_id: 
                 try:
                     # (추후 과제: 이 곳에서 frame의 타임스탬프와 sensor의 타임스탬프가 ±30ms 이내인지 검사)
-                    sync_queue.put_nowait((frame, sensor))
+                    sync_queue.put_nowait((frame, sensor, frame_packet))
                 except queue.Full:
                     pass  # 큐가 꽉 찼다면 초과된(오래된) 데이터는 안전하게 버림(Drop)
                 
@@ -117,10 +138,9 @@ def main():
     print("MQTT Receiver: On")
     time.sleep(1) # MQTT 연결 안정화 대기
 
-    # 2) WebRTC 영상 수신 서버 시작 (포트 8081)
-    # 기존에 포트 8080을 열던 불필요한 WebRTC_Server 로직은 제거했습니다.
+    # 2) WebRTC 영상 수신 서버 시작 (포트 8080)
     start_webrtc_server()
-    print("WebRTC Receiver: On (Port 8081)")
+    print("WebRTC Receiver: On (Port 8080)")
 
     # 3) 실시간 웹소켓(포트 8765) 서버 쓰레드 시작
     ws_thread = threading.Thread(target=start_websocket_server, daemon=True)
@@ -128,7 +148,7 @@ def main():
     print("WebSocket Server: On (Port 8765)")
 
     # 4) 실시간 분석 워커 쓰레드 시작 (데몬 쓰레드)
-    # 백그라운드에서 계속 돌면서 큐에 들어오는 즉시 위험도를 분석합니다.
+    # 백그라운드에서 계속 돌면서 큐에 들어오는 즉시 위험도를 분석
     fusion_thread = threading.Thread(target=data_fusion_worker, daemon=True)
     fusion_thread.start()
 
