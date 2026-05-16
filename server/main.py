@@ -5,6 +5,9 @@ import queue
 import asyncio
 import websockets
 import json
+import subprocess
+import os
+
 from video_processor import VideoProcessor
 from camera_stream import get_frame, start_webrtc_server
 from risk_analyzer import analyze
@@ -28,38 +31,54 @@ def map_risk_level(level):
 
 async def echo_server(websocket, *_args):
     connected_websocket_clients.add(websocket)
+
     try:
         async for message in websocket:
-            pass # 클라이언트의 메시지는 무시
+            pass
+
     except websockets.exceptions.ConnectionClosed:
         pass
+
     finally:
         connected_websocket_clients.discard(websocket)
 
+
 def start_websocket_server():
     global websocket_loop
+
     websocket_loop = asyncio.new_event_loop()
     asyncio.set_event_loop(websocket_loop)
-    
+
     async def main_serve():
-        async with websockets.serve(echo_server, "0.0.0.0", 8765):
-            await asyncio.Future()  # 무한 대기
-            
+        async with websockets.serve(
+            echo_server,
+            "0.0.0.0",
+            8765
+        ):
+            await asyncio.Future()
+
     websocket_loop.run_until_complete(main_serve())
 
-# 데이터를 비동기로 동기화 및 처리하기 위한 큐 (최신 프레임 10개만 유지, 밀리면 버림)
+
+# 데이터를 비동기로 동기화 및 처리하기 위한 큐
 sync_queue = queue.Queue(maxsize=10)
 
 processor = VideoProcessor()
+
 
 def data_fusion_worker():
     print("[Worker] Data Fusion / AI Inference Thread: On")
 
     while True:
+
         frame, sensor, frame_meta = sync_queue.get()
 
         try:
-            result = processor.process(frame, frame_meta, sensor)
+            result = processor.process(
+                frame,
+                frame_meta,
+                sensor
+            )
 
             if result is None:
                 continue
@@ -69,6 +88,7 @@ def data_fusion_worker():
 
             if result["helmet"] is None:
                 print("person    : 없음")
+
             else:
                 print("person    : 있음")
                 print(f"helmet    : {result['helmet']}")
@@ -76,76 +96,119 @@ def data_fusion_worker():
             print(f"temp      : {result['sensor']['temp']}")
             print(f"noise     : {result['sensor']['noise']}")
             print(f"risk      : {result['risk']}")
+
             print("================================\n")
 
         except Exception as e:
             print(f"[Error] 분석 중 오류 발생: {e}")
+
         finally:
             sync_queue.task_done()
 
+
 def data_polling_manager():
-    """
-    현재 camera_stream.py의 전역 변수 방식(latest_frame)과
-    sensor_receiver.py(latest_sensor)를 엮어주는 브릿지 역할.
-    """
+
     print("[Manager] Data Polling Manager: On")
+
     last_frame_id = None
-    
+
     while True:
+
         frame_packet = get_frame()
         sensor = sensor_receiver.get_sensor_data()
-        
-        # 두 데이터가 모두 존재하고, 이전과 다른 '새로운 프레임'일 때만 동기화 큐에 삽입
+
         if frame_packet is not None and sensor is not None:
+
             frame = frame_packet["frame"]
+
             video_device_id = frame_packet.get("device_id")
             sensor_device_id = sensor.get("device_id")
 
-            # 센서에 device_id가 있을 경우, 동일 디바이스 데이터만 처리
-            if sensor_device_id and video_device_id and sensor_device_id != video_device_id:
+            if (
+                sensor_device_id
+                and video_device_id
+                and sensor_device_id != video_device_id
+            ):
                 time.sleep(0.01)
                 continue
 
-            current_frame_id = frame_packet.get("frame_id", id(frame))
-            if current_frame_id != last_frame_id: 
+            current_frame_id = frame_packet.get(
+                "frame_id",
+                id(frame)
+            )
+
+            if current_frame_id != last_frame_id:
+
                 try:
-                    # (추후 과제: 이 곳에서 frame의 타임스탬프와 sensor의 타임스탬프가 ±30ms 이내인지 검사)
-                    sync_queue.put_nowait((frame, sensor, frame_packet))
+                    sync_queue.put_nowait(
+                        (frame, sensor, frame_packet)
+                    )
+
                 except queue.Full:
-                    pass  # 큐가 꽉 찼다면 초과된(오래된) 데이터는 안전하게 버림(Drop)
-                
+                    pass
+
                 last_frame_id = current_frame_id
-                
-        # 기존: time.sleep(1) -> FPS를 1로 강제로 낮췄던 원인
-        # 개선: 10ms 단위의 짧은 슬립으로 실시간(30fps 연산)에 대응
+
         time.sleep(0.01)
 
+
+def start_frontend():
+
+    FRONTEND_PATH = (
+        r"C:\Users\parkn\OneDrive\CLOUD\VSCODE\PYTHON\Safety\SW"
+    )
+
+    print("[Frontend] Next.js Frontend Starting...")
+
+    subprocess.Popen(
+        'start cmd /k "npm run dev"',
+        cwd=FRONTEND_PATH,
+        shell=True
+    )
+
+
 def main():
+
     print("=========================================")
     print("   안전모 실시간 관제 시스템 (Optimized) ")
     print("=========================================")
 
-    # 1) MQTT 시작 (라즈베리파이 센서 데이터 수신)
-    start_mqtt()
-    print("MQTT Receiver: On")
-    time.sleep(1) # MQTT 연결 안정화 대기
+    # 0) 프론트엔드 자동 실행
+    start_frontend()
 
-    # 2) WebRTC 영상 수신 서버 시작 (포트 8080)
+    # 1) MQTT 시작
+    start_mqtt()
+
+    print("MQTT Receiver: On")
+
+    time.sleep(1)
+
+    # 2) WebRTC 영상 수신 서버 시작
     start_webrtc_server()
+
     print("WebRTC Receiver: On (Port 8080)")
 
-    # 3) 실시간 웹소켓(포트 8765) 서버 쓰레드 시작
-    ws_thread = threading.Thread(target=start_websocket_server, daemon=True)
+    # 3) 웹소켓 서버 시작
+    ws_thread = threading.Thread(
+        target=start_websocket_server,
+        daemon=True
+    )
+
     ws_thread.start()
+
     print("WebSocket Server: On (Port 8765)")
 
-    # 4) 실시간 분석 워커 쓰레드 시작 (데몬 쓰레드)
-    # 백그라운드에서 계속 돌면서 큐에 들어오는 즉시 위험도를 분석
-    fusion_thread = threading.Thread(target=data_fusion_worker, daemon=True)
+    # 4) AI 분석 쓰레드 시작
+    fusion_thread = threading.Thread(
+        target=data_fusion_worker,
+        daemon=True
+    )
+
     fusion_thread.start()
 
-    # 4) 데이터 수집 및 동기화 무한 루프 시작 (메인 쓰레드)
+    # 5) 데이터 수집 루프 시작
     data_polling_manager()
+
 
 if __name__ == "__main__":
     main()
