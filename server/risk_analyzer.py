@@ -2,7 +2,7 @@
 
 import math
 from case_library import load_cases
-from feature_extractor import detect_helmet
+from feature_extractor import detect_person_and_helmet
 
 
 # ======================================================
@@ -104,7 +104,7 @@ def analyze(frame, latest_sensor):
     # ------------------------------------------------------
     # YOLO 헬멧 탐지 (0 = 미착용, 1 = 착용)
     # ------------------------------------------------------
-    helmet_status = detect_helmet(frame)
+    helmet_status = detect_person_and_helmet(frame)
 
     temp = latest_sensor.get("temp", 25.0)
     noise = latest_sensor.get("noise", 50.0)
