@@ -1,15 +1,47 @@
 import time
+
 import board
 import adafruit_dht
 
-dht = adafruit_dht.DHT11(board.D4) # D4 핀에 DHT11 연결
+
+# DHT22 + Raspberry Pi 5 안정화 옵션
+dht = adafruit_dht.DHT22(
+    board.D4,
+    use_pulseio=False
+)
+
 
 def read_temp():
-    for _ in range(5): 
+
+    for _ in range(5):
+
         try:
+
             temp = dht.temperature
+
             if temp is not None:
-                return temp
-        except RuntimeError:
+
+                return round(
+                    float(temp),
+                    1
+                )
+
+        except RuntimeError as e:
+
+            print(
+                "[DHT22 RuntimeError]",
+                e
+            )
+
             time.sleep(0.2)
+
+        except Exception as e:
+
+            print(
+                "[DHT22 ERROR]",
+                e
+            )
+
+            time.sleep(0.5)
+
     return None
