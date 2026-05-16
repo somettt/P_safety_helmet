@@ -29,9 +29,8 @@ def detect_person_and_helmet(frame, conf_thresh=0.3):
     frame = cv2.resize(frame, (640, 480))
     results = model(frame, verbose=False)
 
-    person_exist = False
-    helmet_conf = 0
-    no_helmet_conf = 0
+    persons = []
+    helmets = []
 
     for r in results:
         if r.boxes is None:
@@ -41,28 +40,38 @@ def detect_person_and_helmet(frame, conf_thresh=0.3):
             cls = int(box.cls[0])
             conf = float(box.conf[0])
             label = model.names[cls].lower()
-
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
             if conf < conf_thresh:
                 continue
 
-            # 👤 사람 탐지
             if label == "person":
-                person_exist = True
+                persons.append((x1, y1, x2, y2))
 
-            # ⛑️ 헬멧 탐지
-            if _is_no_helmet_label(label):
-                no_helmet_conf = max(no_helmet_conf, conf)
             elif _is_helmet_label(label):
-                helmet_conf = max(helmet_conf, conf)
+                helmets.append((x1, y1, x2, y2))
 
-    # 🎯 로직
-    if not person_exist:
-        return None   # 👈 핵심: 사람 없음
+    if len(persons) == 0:
+        return None
 
-    if no_helmet_conf > helmet_conf:
-        return 0
+    for px1, py1, px2, py2 in persons:
 
-    if helmet_conf > 0:
-        return 1
+        head_y = py1 + (py2 - py1) * 0.35
 
-    return 0
+        helmet_found = False
+
+        for hx1, hy1, hx2, hy2 in helmets:
+
+            helmet_center_x = (hx1 + hx2) / 2
+            helmet_center_y = (hy1 + hy2) / 2
+
+            if (
+                px1 <= helmet_center_x <= px2
+                and py1 <= helmet_center_y <= head_y
+            ):
+                helmet_found = True
+                break
+
+        if not helmet_found:
+            return 0
+
+    return 1

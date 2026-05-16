@@ -118,9 +118,9 @@ def analyze(frame, latest_sensor):
         reasons.append("헬멧 미착용")
 
         # 추가 센서 위험 요소가 있다면 사유에 포함
-        if temp > 30:
+        if temp >= 35:
             reasons.append(f"고온({temp}°C)")
-        if noise > 75:
+        if noise >= 80:
             reasons.append(f"고소음({noise}dB)")
 
         return {
