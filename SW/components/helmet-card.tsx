@@ -33,7 +33,7 @@ const riskConfig = {
     borderColor: "border-risk-medium",
     label: "주의",
     bgGlow: "shadow-[0_0_20px_rgba(234,179,8,0.3)]",
-    statusText: "주의 작업자 감지",
+    statusText: "위험 요소 감지",
   },
 
   HIGH: {
