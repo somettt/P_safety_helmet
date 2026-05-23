@@ -178,9 +178,11 @@ export default function DashboardPage() {
 
           const now = new Date()
 
+          const deviceId = data.device_id ?? "helmet_001"
+
           const realHelmet: HelmetData = {
             id: 1,
-            deviceId: "DEV-1000",
+            deviceId,
             helmetOn: data.riskLevel !== "HIGH",
             riskLevel: data.riskLevel,
             temperature: Math.round(data.temperature * 10) / 10,
@@ -192,7 +194,7 @@ export default function DashboardPage() {
           setHelmets((prev) => {
 
             const others = prev.filter(
-              (h) => h.deviceId !== "DEV-1000"
+              (h) => h.deviceId !== deviceId
             )
 
             return [

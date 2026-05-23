@@ -43,6 +43,42 @@ async def echo_server(websocket, *_args):
         connected_websocket_clients.discard(websocket)
 
 
+async def broadcast_dashboard(payload):
+    if not connected_websocket_clients:
+        return
+
+    message = json.dumps(payload)
+
+    await asyncio.gather(
+        *[
+            websocket.send(message)
+            for websocket in connected_websocket_clients
+        ],
+        return_exceptions=True
+    )
+
+
+def send_dashboard_update(result):
+    if websocket_loop is None:
+        return
+
+    sensor = result["sensor"]
+    payload = {
+        "device_id": result["device_id"],
+        "riskLevel": map_risk_level(result["risk"]),
+        "temperature": sensor["temp"],
+        "noise": sensor["noise"],
+        "helmet": result["helmet"],
+        "timestamp": result["timestamp"],
+    }
+
+    websocket_loop.call_soon_threadsafe(
+        lambda: asyncio.create_task(
+            broadcast_dashboard(payload)
+        )
+    )
+
+
 def start_websocket_server():
     global websocket_loop
 
@@ -98,6 +134,8 @@ def data_fusion_worker():
             print(f"risk      : {result['risk']}")
 
             print("================================\n")
+
+            send_dashboard_update(result)
 
         except Exception as e:
             print(f"[Error] 분석 중 오류 발생: {e}")

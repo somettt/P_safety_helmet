@@ -1,6 +1,5 @@
 import time
 import json
-import random
 
 import paho.mqtt.client as mqtt
 import temp_reader as temp_reader
@@ -16,6 +15,7 @@ PORT = 1883
 TOPIC = "helmet/sensor"
 
 DEVICE_ID = "helmet_001"
+NOISE_DBFS_OFFSET = 100.0
 
 
 def utc_ms():
@@ -51,8 +51,7 @@ def read_noise():
     rms = np.sqrt(np.mean(np.square(x)) + 1e-12)
     dbfs = 20 * np.log10(rms + 1e-12)
 
-    # 보정값 (90 ~ 110 사이에서 조정해야함)
-    db_spl_est = dbfs + 100
+    db_spl_est = dbfs + NOISE_DBFS_OFFSET
 
     return float(db_spl_est)
 
