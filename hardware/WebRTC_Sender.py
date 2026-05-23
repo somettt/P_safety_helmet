@@ -20,6 +20,11 @@ SIGNALING_SERVER_URL = (
 )
 
 DEVICE_ID = "helmet_001"
+VIDEO_DEVICES = (
+    "/dev/video0",
+    "/dev/video1",
+    "/dev/video2"
+)
 CAMERA_INDEXES = (0, 1, 2)
 FRAME_WIDTH = 640
 FRAME_HEIGHT = 480
@@ -41,6 +46,54 @@ class CameraStreamTrack(VideoStreamTrack):
             print("[INFO] Camera opened")
 
     def open_camera(self):
+
+        cap = self.open_gstreamer_camera()
+
+        if cap is not None:
+
+            return cap
+
+        print("[WARN] GStreamer camera open failed, trying OpenCV")
+
+        return self.open_opencv_camera()
+
+    def open_gstreamer_camera(self):
+
+        for device in VIDEO_DEVICES:
+
+            pipeline = (
+                f"v4l2src device={device} ! "
+                f"video/x-raw,width={FRAME_WIDTH},height={FRAME_HEIGHT},"
+                f"framerate={FRAME_FPS}/1 ! "
+                "videoconvert ! "
+                "video/x-raw,format=BGR ! "
+                "appsink drop=true max-buffers=1 sync=false"
+            )
+
+            cap = cv2.VideoCapture(
+                pipeline,
+                cv2.CAP_GSTREAMER
+            )
+
+            if not cap.isOpened():
+
+                cap.release()
+
+                continue
+
+            ret, _frame = cap.read()
+
+            if ret:
+
+                print(f"[INFO] GStreamer camera opened: {device}")
+
+                return cap
+
+            cap.release()
+
+        return None
+
+    def open_opencv_camera(self):
 
         for index in CAMERA_INDEXES:
 
