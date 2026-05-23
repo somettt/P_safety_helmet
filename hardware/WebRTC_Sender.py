@@ -13,7 +13,7 @@ from aiortc import (
 from av import VideoFrame
 
 
-SERVER_IP = "IP입력하기"
+SERVER_IP = "172.20.10.2"
 
 SIGNALING_SERVER_URL = (
     f"http://{SERVER_IP}:8080/offer"
