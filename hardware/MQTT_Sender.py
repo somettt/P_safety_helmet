@@ -3,8 +3,9 @@ import json
 import random
 
 import paho.mqtt.client as mqtt
-
-# import temp_reader as temp_reader
+import temp_reader as temp_reader
+import sounddevice as sd
+import numpy as np
 
 from datetime import datetime, timezone
 
@@ -26,27 +27,23 @@ def utc_ms():
 def read_temperature():
 
     # 실제 센서 연결 시 사용
-    #
-    # for _ in range(3):
-    #
-    #     temp = temp_reader.read_temp()
-    #
-    #     if temp is not None:
-    #         return temp
-    #
-    #     time.sleep(0.5)
-    #
-    # return None
-
-    return 24.0 + random.uniform(-3, 3)
+    for _ in range(3):
+        temp = temp_reader.read_temp()
+        if temp is not None:
+            return temp
+        time.sleep(0.5)
+    return None
 
 
 def read_noise():
-
-    # TODO:
-    # 실제 소음 센서 연결 시 수정
-
-    return 73.0 + random.uniform(-3, 3)
+    duration = 0.2
+    samplerate = 16000
+    audio = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=1, dtype="float32")
+    sd.wait()
+    x = audio.flatten()
+    rms = np.sqrt(np.mean(np.square(x)) + 1e-12)
+    dbfs = 20 * np.log10(rms + 1e-12)
+    return float(dbfs)
 
 
 def connect_mqtt():

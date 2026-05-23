@@ -7,8 +7,9 @@ import adafruit_dht
 # DHT22 + Raspberry Pi 5 안정화 옵션
 dht = adafruit_dht.DHT22(
     board.D4,
-    use_pulseio=False
+    use_pulseio=False 
 )
+# 물리 7번핀 + 3.3ㅍ
 
 
 def read_temp():
