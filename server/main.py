@@ -10,7 +10,6 @@ import os
 
 from video_processor import VideoProcessor
 from camera_stream import get_frame, start_webrtc_server
-from risk_analyzer import analyze
 import sensor_receiver
 from sensor_receiver import start_mqtt
 
