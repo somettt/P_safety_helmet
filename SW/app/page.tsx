@@ -18,6 +18,47 @@ export interface HelmetData {
   lastUpdate: string
 }
 
+interface DashboardPayload {
+  device_id?: string
+  riskLevel: RiskLevel
+  temperature: number
+  noise: number
+  helmet?: 0 | 1 | null
+}
+
+const DUMMY_DEVICE_IDS = new Set([
+  "DEV-1001",
+  "DEV-1002",
+  "DEV-1003",
+])
+
+const isRiskLevel = (value: unknown): value is RiskLevel => {
+  return value === "LOW" || value === "MID" || value === "HIGH"
+}
+
+const isDashboardPayload = (value: unknown): value is DashboardPayload => {
+  if (typeof value !== "object" || value === null) {
+    return false
+  }
+
+  const payload = value as Record<string, unknown>
+
+  return (
+    (payload.device_id === undefined || typeof payload.device_id === "string") &&
+    isRiskLevel(payload.riskLevel) &&
+    typeof payload.temperature === "number" &&
+    Number.isFinite(payload.temperature) &&
+    typeof payload.noise === "number" &&
+    Number.isFinite(payload.noise) &&
+    (
+      payload.helmet === undefined ||
+      payload.helmet === null ||
+      payload.helmet === 0 ||
+      payload.helmet === 1
+    )
+  )
+}
+
 // 더미 헬멧 생성 함수
 const generateDummyHelmet = (
   id: number,
@@ -104,8 +145,8 @@ export default function DashboardPage() {
 
       setHelmets((prev) => {
 
-        const realHelmet = prev.find(
-          (h) => h.deviceId === "DEV-1000"
+        const realHelmets = prev.filter(
+          (h) => !DUMMY_DEVICE_IDS.has(h.deviceId)
         )
 
         const dummy1 = generateDummyHelmet(
@@ -123,10 +164,10 @@ export default function DashboardPage() {
           "DEV-1003"
         )
 
-        if (realHelmet) {
+        if (realHelmets.length > 0) {
 
           return [
-            realHelmet,
+            ...realHelmets,
             dummy1,
             dummy2,
             dummy3
@@ -174,7 +215,11 @@ export default function DashboardPage() {
 
         try {
 
-          const data = JSON.parse(event.data)
+          const data: unknown = JSON.parse(event.data)
+
+          if (!isDashboardPayload(data)) {
+            throw new Error("Invalid dashboard payload")
+          }
 
           const now = new Date()
 
@@ -183,7 +228,9 @@ export default function DashboardPage() {
           const realHelmet: HelmetData = {
             id: 1,
             deviceId,
-            helmetOn: data.riskLevel !== "HIGH",
+            helmetOn: data.helmet === undefined
+              ? data.riskLevel !== "HIGH"
+              : data.helmet !== 0,
             riskLevel: data.riskLevel,
             temperature: Math.round(data.temperature * 10) / 10,
             noise: Math.round(data.noise),

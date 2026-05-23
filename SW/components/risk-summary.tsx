@@ -13,6 +13,9 @@ export function RiskSummary({ helmets }: RiskSummaryProps) {
   const midCount = helmets.filter((h) => h.riskLevel === "MID").length
   const highCount = helmets.filter((h) => h.riskLevel === "HIGH").length
   const total = helmets.length
+  const safetyRate = total > 0
+    ? ((lowCount / total) * 100).toFixed(0)
+    : "0"
 
   const riskData = [
     {
@@ -69,7 +72,9 @@ export function RiskSummary({ helmets }: RiskSummaryProps) {
             <div
               key={risk.level}
               className={cn("h-full transition-all duration-500", risk.color)}
-              style={{ width: `${(risk.count / total) * 100}%` }}
+              style={{
+                width: `${total > 0 ? (risk.count / total) * 100 : 0}%`,
+              }}
             />
           ))}
         </div>
@@ -78,7 +83,7 @@ export function RiskSummary({ helmets }: RiskSummaryProps) {
           <span>
             안전율{" "}
             <span className="text-risk-low font-semibold">
-              {((lowCount / total) * 100).toFixed(0)}%
+              {safetyRate}%
             </span>
           </span>
         </div>
