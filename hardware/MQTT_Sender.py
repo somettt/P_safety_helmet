@@ -38,12 +38,23 @@ def read_temperature():
 def read_noise():
     duration = 0.2
     samplerate = 16000
-    audio = sd.rec(int(duration * samplerate), samplerate=samplerate, channels=1, dtype="float32")
+
+    audio = sd.rec(
+        int(duration * samplerate),
+        samplerate=samplerate,
+        channels=1,
+        dtype="float32"
+    )
     sd.wait()
+
     x = audio.flatten()
     rms = np.sqrt(np.mean(np.square(x)) + 1e-12)
     dbfs = 20 * np.log10(rms + 1e-12)
-    return float(dbfs)
+
+    # 보정값 (90 ~ 110 사이에서 조정해야함)
+    db_spl_est = dbfs + 100
+
+    return float(db_spl_est)
 
 
 def connect_mqtt():
