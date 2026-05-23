@@ -2,6 +2,7 @@ import asyncio
 import json
 import aiohttp
 import cv2
+import numpy as np
 
 from aiortc import (
     RTCPeerConnection,
@@ -12,13 +13,17 @@ from aiortc import (
 from av import VideoFrame
 
 
-SERVER_IP = "192.168.72.123"
+SERVER_IP = "IP입력하기"
 
 SIGNALING_SERVER_URL = (
     f"http://{SERVER_IP}:8080/offer"
 )
 
 DEVICE_ID = "helmet_001"
+CAMERA_INDEXES = (0, 1, 2)
+FRAME_WIDTH = 640
+FRAME_HEIGHT = 480
+FRAME_FPS = 15
 
 
 class CameraStreamTrack(VideoStreamTrack):
@@ -27,17 +32,52 @@ class CameraStreamTrack(VideoStreamTrack):
 
         super().__init__()
 
-        # 라즈베리파이 카메라 안정성 향상
-        self.cap = cv2.VideoCapture(
-            0,
-            cv2.CAP_V4L2
-        )
+        self.cap = self.open_camera()
 
         if not self.cap.isOpened():
             print("[ERR] Camera open failed")
 
         else:
             print("[INFO] Camera opened")
+
+    def open_camera(self):
+
+        for index in CAMERA_INDEXES:
+
+            cap = cv2.VideoCapture(index)
+
+            if not cap.isOpened():
+
+                cap.release()
+
+                continue
+
+            cap.set(
+                cv2.CAP_PROP_FRAME_WIDTH,
+                FRAME_WIDTH
+            )
+
+            cap.set(
+                cv2.CAP_PROP_FRAME_HEIGHT,
+                FRAME_HEIGHT
+            )
+
+            cap.set(
+                cv2.CAP_PROP_FPS,
+                FRAME_FPS
+            )
+
+            ret, _frame = cap.read()
+
+            if ret:
+
+                print(f"[INFO] Camera index {index} opened")
+
+                return cap
+
+            cap.release()
+
+        return cv2.VideoCapture(-1)
 
     async def recv(self):
 
@@ -51,18 +91,17 @@ class CameraStreamTrack(VideoStreamTrack):
 
             await asyncio.sleep(0.01)
 
-            # 재귀 호출 제거
-            blank = VideoFrame.from_ndarray(
-                cv2.cvtColor(
-                    cv2.imread("black.jpg")
-                    if cv2.imread("black.jpg") is not None
-                    else
-                    cv2.cvtColor(
-                        cv2.UMat(480, 640, cv2.CV_8UC3).get(),
-                        cv2.COLOR_BGR2RGB
-                    ),
-                    cv2.COLOR_BGR2RGB
+            blank_frame = np.zeros(
+                (
+                    FRAME_HEIGHT,
+                    FRAME_WIDTH,
+                    3
                 ),
+                dtype=np.uint8
+            )
+
+            blank = VideoFrame.from_ndarray(
+                blank_frame,
                 format="rgb24"
             )
 
@@ -131,6 +170,12 @@ async def run():
                 text = await resp.text()
 
                 print("[DEBUG] response:", text)
+
+                if resp.status != 200:
+
+                    raise RuntimeError(
+                        f"Signaling failed: {resp.status} {text}"
+                    )
 
                 answer_json = json.loads(text)
 
