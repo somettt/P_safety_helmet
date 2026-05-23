@@ -14,7 +14,7 @@ from risk_analyzer import analyze
 import sensor_receiver
 from sensor_receiver import start_mqtt
 
-from db.db_writer import insert_sensor, insert_risk
+from db.db_writer import insert_analysis_result
 
 # 웹소켓 전역 변수 설정
 connected_websocket_clients = set()
@@ -168,6 +168,7 @@ def data_fusion_worker():
 
             print("================================\n")
 
+            insert_analysis_result(result)
             send_dashboard_update(result)
 
         except Exception as e:

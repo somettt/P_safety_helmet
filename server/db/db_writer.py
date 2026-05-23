@@ -15,6 +15,24 @@ DB_PATH = os.path.join(
     "smart_helmet.db"
 )
 
+CREATE_SENSOR_TABLE_SQL = """
+    CREATE TABLE IF NOT EXISTS sensor_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        temp REAL,
+        noise REAL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+"""
+
+CREATE_RISK_TABLE_SQL = """
+    CREATE TABLE IF NOT EXISTS risk_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        level TEXT,
+        reason TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+"""
+
 
 # --------------------------------------------------
 # DB 폴더 생성
@@ -23,6 +41,28 @@ DB_PATH = os.path.join(
 if not os.path.exists(BASE_DIR):
 
     os.makedirs(BASE_DIR)
+
+
+def get_connection():
+    conn = sqlite3.connect(
+        DB_PATH,
+        timeout=5
+    )
+
+    conn.execute(CREATE_SENSOR_TABLE_SQL)
+    conn.execute(CREATE_RISK_TABLE_SQL)
+
+    return conn
+
+
+def to_float(value):
+    if value is None:
+        return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 # --------------------------------------------------
@@ -35,10 +75,7 @@ def insert_sensor(temp, noise):
 
     try:
 
-        conn = sqlite3.connect(
-            DB_PATH,
-            timeout=5
-        )
+        conn = get_connection()
 
         cur = conn.cursor()
 
@@ -46,7 +83,10 @@ def insert_sensor(temp, noise):
             INSERT INTO sensor_data
             (temp, noise)
             VALUES (?, ?)
-        """, (temp, noise))
+        """, (
+            float(temp),
+            float(noise)
+        ))
 
         conn.commit()
 
@@ -74,10 +114,7 @@ def insert_risk(level, reason):
 
     try:
 
-        conn = sqlite3.connect(
-            DB_PATH,
-            timeout=5
-        )
+        conn = get_connection()
 
         cur = conn.cursor()
 
@@ -101,3 +138,34 @@ def insert_risk(level, reason):
         if conn:
 
             conn.close()
+
+
+def insert_analysis_result(result):
+    sensor = result.get("sensor", {})
+    temp = to_float(sensor.get("temp"))
+    noise = to_float(sensor.get("noise"))
+
+    if temp is not None and noise is not None:
+        insert_sensor(temp, noise)
+
+    risk = result.get("risk", "LOW")
+    helmet = result.get("helmet")
+
+    reasons = []
+
+    if helmet == 0:
+        reasons.append("헬멧 미착용")
+
+    if temp is not None and temp > 40:
+        reasons.append(f"고온({temp:.1f}°C)")
+
+    if noise is not None and noise > 70:
+        reasons.append(f"고소음({noise:.1f}dB)")
+
+    if not reasons:
+        reasons.append("안전 상태")
+
+    insert_risk(
+        risk,
+        ", ".join(reasons)
+    )

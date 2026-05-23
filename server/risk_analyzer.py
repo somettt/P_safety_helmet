@@ -4,14 +4,39 @@ import math
 from case_library import load_cases
 from feature_extractor import detect_person_and_helmet
 
+NOISE_DBFS_OFFSET = 100.0
+
+
+def normalize_helmet(value):
+    if value is None:
+        return 1
+
+    return 0 if int(value) == 0 else 1
+
+
+def normalize_noise(value):
+    noise = float(value)
+    return noise + NOISE_DBFS_OFFSET if noise < 0 else noise
+
+
+def normalize_case(case):
+    return {
+        "helmet": normalize_helmet(case.get("helmet", 1)),
+        "temp": float(case.get("temp", 25.0)),
+        "noise": normalize_noise(case.get("noise", 50.0)),
+        "label": case.get("label"),
+    }
+
 
 # ======================================================
 # 1) KNN CBR
 # ======================================================
 def cbr_knn(case, library, k=3):
+    case = normalize_case(case)
     distances = []
 
     for lib_case in library:
+        lib_case = normalize_case(lib_case)
         dist = math.sqrt(
             (case["helmet"] - lib_case["helmet"]) ** 2 +
             (case["temp"] - lib_case["temp"]) ** 2 +
@@ -35,6 +60,7 @@ def cbr_knn(case, library, k=3):
 # 2) Rule-based CBR
 # ======================================================
 def cbr_rule(case):
+    case = normalize_case(case)
 
     # 헬멧 미착용은 최우선 규칙 (여기선 사용되지 않지만 참고)
     if case["helmet"] == 0:
@@ -56,6 +82,8 @@ def cbr_rule(case):
 # 3) Weighted CBR
 # ======================================================
 def cbr_weighted(case, library):
+    case = normalize_case(case)
+
     score = (
         (1 - case["helmet"]) * 30 +    # 헬멧 미착용 → 위험 점수 크게
         case["temp"] * 0.4 +
@@ -74,6 +102,7 @@ def cbr_weighted(case, library):
 # 4) CBR 통합 판단
 # ======================================================
 def analyze_cbr(case):
+    case = normalize_case(case)
     library = load_cases()
 
     r1 = cbr_knn(case, library)
@@ -106,8 +135,8 @@ def analyze(frame, latest_sensor):
     # ------------------------------------------------------
     helmet_status = detect_person_and_helmet(frame)
 
-    temp = latest_sensor.get("temp", 25.0)
-    noise = latest_sensor.get("noise", 50.0)
+    temp = float(latest_sensor.get("temp", 25.0))
+    noise = normalize_noise(latest_sensor.get("noise", 50.0))
 
     reasons = []
 
@@ -132,6 +161,9 @@ def analyze(frame, latest_sensor):
     # ------------------------------------------------------
     # 2) 헬멧 착용한 경우 → CBR 기반 통합 판단 사용
     # ------------------------------------------------------
+    if helmet_status is None:
+        helmet_status = 1
+
     cbr_case = {
         "helmet": helmet_status,
         "temp": temp,
