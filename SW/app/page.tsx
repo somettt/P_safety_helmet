@@ -19,7 +19,7 @@ export interface HelmetData {
 }
 
 interface DashboardPayload {
-  device_id?: string
+  deviceId: string
   riskLevel: RiskLevel
   temperature: number
   noise: number
@@ -36,27 +36,97 @@ const isRiskLevel = (value: unknown): value is RiskLevel => {
   return value === "LOW" || value === "MID" || value === "HIGH"
 }
 
-const isDashboardPayload = (value: unknown): value is DashboardPayload => {
+const toNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  return null
+}
+
+const normalizeNoise = (noise: number): number => {
+  return noise < 0 ? noise + 100 : noise
+}
+
+const getRiskLevel = (
+  riskLevel: unknown,
+  temperature: number,
+  noise: number
+): RiskLevel => {
+  if (isRiskLevel(riskLevel)) {
+    return riskLevel
+  }
+
+  if (riskLevel === "위험") {
+    return "HIGH"
+  }
+
+  if (riskLevel === "경고" || riskLevel === "주의") {
+    return "MID"
+  }
+
+  if (temperature > 60 || noise > 85) {
+    return "HIGH"
+  }
+
+  if (temperature > 40 || noise > 70) {
+    return "MID"
+  }
+
+  return "LOW"
+}
+
+const parseDashboardPayload = (value: unknown): DashboardPayload | null => {
   if (typeof value !== "object" || value === null) {
-    return false
+    return null
   }
 
   const payload = value as Record<string, unknown>
+  const sensor = (
+    typeof payload.sensor === "object" && payload.sensor !== null
+      ? payload.sensor
+      : {}
+  ) as Record<string, unknown>
+  const rawTemperature =
+    payload.temperature ?? payload.temp ?? sensor.temperature ?? sensor.temp
+  const rawNoise = payload.noise ?? sensor.noise
+  const temperature = toNumber(rawTemperature)
+  const noise = toNumber(rawNoise)
 
-  return (
-    (payload.device_id === undefined || typeof payload.device_id === "string") &&
-    isRiskLevel(payload.riskLevel) &&
-    typeof payload.temperature === "number" &&
-    Number.isFinite(payload.temperature) &&
-    typeof payload.noise === "number" &&
-    Number.isFinite(payload.noise) &&
-    (
-      payload.helmet === undefined ||
-      payload.helmet === null ||
-      payload.helmet === 0 ||
-      payload.helmet === 1
-    )
-  )
+  if (temperature === null || noise === null) {
+    return null
+  }
+
+  const deviceId =
+    typeof payload.device_id === "string"
+      ? payload.device_id
+      : typeof payload.deviceId === "string"
+      ? payload.deviceId
+      : typeof sensor.device_id === "string"
+      ? sensor.device_id
+      : "helmet_001"
+  const normalizedNoise = normalizeNoise(noise)
+  const rawHelmet = payload.helmet
+  const helmet = rawHelmet === 0 || rawHelmet === 1 || rawHelmet === null
+    ? rawHelmet
+    : undefined
+
+  return {
+    deviceId,
+    riskLevel: getRiskLevel(
+      payload.riskLevel ?? payload.risk,
+      temperature,
+      normalizedNoise
+    ),
+    temperature,
+    noise: normalizedNoise,
+    helmet,
+  }
 }
 
 // 더미 헬멧 생성 함수
@@ -194,7 +264,7 @@ export default function DashboardPage() {
   // Python WebSocket 연결
   useEffect(() => {
 
-    const wsUrl = "ws://localhost:8765"
+    const wsUrl = `ws://${window.location.hostname || "localhost"}:8765`
 
     let ws: WebSocket
 
@@ -215,25 +285,25 @@ export default function DashboardPage() {
 
         try {
 
-          const data: unknown = JSON.parse(event.data)
+          const payload = parseDashboardPayload(
+            JSON.parse(event.data)
+          )
 
-          if (!isDashboardPayload(data)) {
+          if (payload === null) {
             throw new Error("Invalid dashboard payload")
           }
 
           const now = new Date()
 
-          const deviceId = data.device_id ?? "helmet_001"
-
           const realHelmet: HelmetData = {
             id: 1,
-            deviceId,
-            helmetOn: data.helmet === undefined
-              ? data.riskLevel !== "HIGH"
-              : data.helmet !== 0,
-            riskLevel: data.riskLevel,
-            temperature: Math.round(data.temperature * 10) / 10,
-            noise: Math.round(data.noise),
+            deviceId: payload.deviceId,
+            helmetOn: payload.helmet === undefined
+              ? payload.riskLevel !== "HIGH"
+              : payload.helmet !== 0,
+            riskLevel: payload.riskLevel,
+            temperature: Math.round(payload.temperature * 10) / 10,
+            noise: Math.round(payload.noise),
             score: 0.95,
             lastUpdate: now.toLocaleTimeString("ko-KR"),
           }
@@ -241,7 +311,7 @@ export default function DashboardPage() {
           setHelmets((prev) => {
 
             const others = prev.filter(
-              (h) => h.deviceId !== deviceId
+              (h) => h.deviceId !== payload.deviceId
             )
 
             return [

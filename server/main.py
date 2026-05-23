@@ -79,6 +79,39 @@ def send_dashboard_update(result):
     )
 
 
+def get_sensor_risk_level(sensor):
+    temp = sensor.get("temp", 25.0)
+    noise = sensor.get("noise", 50.0)
+
+    if temp > 60 or noise > 85:
+        return "HIGH"
+
+    if temp > 40 or noise > 70:
+        return "MID"
+
+    return "LOW"
+
+
+def send_sensor_dashboard_update(sensor):
+    if websocket_loop is None:
+        return
+
+    payload = {
+        "device_id": sensor.get("device_id", "helmet_001"),
+        "riskLevel": get_sensor_risk_level(sensor),
+        "temperature": sensor.get("temp", 25.0),
+        "noise": sensor.get("noise", 50.0),
+        "helmet": None,
+        "timestamp": int(time.time() * 1000),
+    }
+
+    websocket_loop.call_soon_threadsafe(
+        lambda: asyncio.create_task(
+            broadcast_dashboard(payload)
+        )
+    )
+
+
 def start_websocket_server():
     global websocket_loop
 
@@ -149,11 +182,23 @@ def data_polling_manager():
     print("[Manager] Data Polling Manager: On")
 
     last_frame_id = None
+    last_sensor_seq = None
 
     while True:
 
         frame_packet = get_frame()
         sensor = sensor_receiver.get_sensor_data()
+
+        if sensor is not None:
+            current_sensor_seq = (
+                sensor.get("device_id"),
+                sensor.get("seq"),
+                sensor.get("timestamp"),
+            )
+
+            if current_sensor_seq != last_sensor_seq:
+                send_sensor_dashboard_update(sensor)
+                last_sensor_seq = current_sensor_seq
 
         if frame_packet is not None and sensor is not None:
 

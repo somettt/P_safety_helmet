@@ -6,6 +6,19 @@ from datetime import datetime
 # ============================================
 latest_sensor = None
 got_sensor = False
+NOISE_DBFS_OFFSET = 100.0
+
+
+def normalize_noise(noise):
+    if noise is None:
+        return None
+
+    noise = float(noise)
+
+    if noise < 0:
+        return noise + NOISE_DBFS_OFFSET
+
+    return noise
 
 # ============================================
 # MQTT 콜백
@@ -21,6 +34,9 @@ def on_message(client, userdata, msg):
     try:
         payload = msg.payload.decode()
         data = json.loads(payload)
+
+        if "noise" in data:
+            data["noise"] = normalize_noise(data.get("noise"))
 
         latest_sensor = data
         got_sensor = True
